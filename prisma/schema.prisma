@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Subset schema for generate only. Tables already exist on the RedDirt database.
+// Do NOT run `prisma migrate deploy` from this repo — a subset schema would look like drift.
+
+enum ContactIntelMethodKind {
+  EMAIL
+  PHONE
+}
+
+enum ContactIntelImportJobStatus {
+  UPLOADED
+  PREVIEWED
+  COMMITTED
+  FAILED
+}
+
+enum ContactIntelSourceRowStatus {
+  PENDING
+  INVALID
+  NEW
+  UPDATE
+  CONFLICT
+  SKIPPED
+  COMMITTED
+}
+
+enum ContactIntelConflictStatus {
+  OPEN
+  DISMISSED
+}
+
+model ContactIntelPerson {
+  id          String   @id @default(cuid())
+  displayName String
+  firstName   String?  @db.VarChar(200)
+  lastName    String?  @db.VarChar(200)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  methods        ContactIntelMethod[]
+  sourceRows     ContactIntelSourceRow[]
+  conflictsLeft  ContactIntelConflict[]  @relation("ContactIntelConflictLeft")
+  conflictsRight ContactIntelConflict[]  @relation("ContactIntelConflictRight")
+
+  @@index([displayName])
+  @@index([updatedAt])
+}
+
+model ContactIntelMethod {
+  id              String                 @id @default(cuid())
+  personId        String
+  person          ContactIntelPerson     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  kind            ContactIntelMethodKind
+  originalValue   String                 @db.Text
+  normalizedValue String                 @db.VarChar(320)
+  createdAt       DateTime               @default(now())
+
+  @@unique([kind, normalizedValue])
+  @@index([personId])
+  @@index([normalizedValue])
+}
+
+model ContactIntelImportJob {
+  id               String                      @id @default(cuid())
+  originalFilename String                      @db.VarChar(500)
+  fileHash         String                      @db.VarChar(64)
+  sourceLabel      String?                     @db.VarChar(320)
+  status           ContactIntelImportJobStatus @default(UPLOADED)
+  mappingJson      Json                        @default("{}")
+  headerJson       Json                        @default("[]")
+  statsJson        Json                        @default("{}")
+  previewJson      Json                        @default("{}")
+  errorSummary     String?                     @db.Text
+  createdByUserId  String?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  committedAt      DateTime?
+
+  rows      ContactIntelSourceRow[]
+  conflicts ContactIntelConflict[]
+
+  @@index([fileHash])
+  @@index([status, createdAt])
+  @@index([createdByUserId])
+}
+
+model ContactIntelSourceRow {
+  id           String                      @id @default(cuid())
+  jobId        String
+  job          ContactIntelImportJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  rowNumber    Int
+  rawJson      Json                        @default("{}")
+  rowHash      String                      @db.VarChar(64)
+  status       ContactIntelSourceRowStatus @default(PENDING)
+  displayName  String?
+  firstName    String?                     @db.VarChar(200)
+  lastName     String?                     @db.VarChar(200)
+  emailsJson   Json                        @default("[]")
+  phonesJson   Json                        @default("[]")
+  personId     String?
+  person       ContactIntelPerson?         @relation(fields: [personId], references: [id], onDelete: SetNull)
+  messagesJson Json                        @default("[]")
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  conflicts ContactIntelConflict[]
+
+  @@unique([jobId, rowNumber])
+  @@index([jobId, status])
+  @@index([rowHash])
+  @@index([personId])
+}
+
+model ContactIntelConflict {
+  id            String                     @id @default(cuid())
+  jobId         String
+  job           ContactIntelImportJob      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceRowId   String
+  sourceRow     ContactIntelSourceRow      @relation(fields: [sourceRowId], references: [id], onDelete: Cascade)
+  leftPersonId  String
+  leftPerson    ContactIntelPerson         @relation("ContactIntelConflictLeft", fields: [leftPersonId], references: [id], onDelete: Cascade)
+  rightPersonId String
+  rightPerson   ContactIntelPerson         @relation("ContactIntelConflictRight", fields: [rightPersonId], references: [id], onDelete: Cascade)
+  reason        String                     @db.Text
+  status        ContactIntelConflictStatus @default(OPEN)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  @@index([jobId, status])
+  @@index([sourceRowId])
+}
