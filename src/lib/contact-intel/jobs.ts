@@ -1,6 +1,11 @@
 import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
-import { hashContactIntelBuffer, hashContactIntelRow, parseContactIntelUpload } from "@/lib/contact-intel/parse";
+import {
+  ContactIntelUploadError,
+  hashContactIntelBuffer,
+  hashContactIntelRow,
+  parseContactIntelUpload,
+} from "@/lib/contact-intel/parse";
 import { guessContactIntelMapping } from "@/lib/contact-intel/mapping";
 
 export async function createContactIntelImportJob(input: {
@@ -10,8 +15,12 @@ export async function createContactIntelImportJob(input: {
   createdByUserId?: string | null;
 }) {
   const parsed = parseContactIntelUpload(input.filename, input.buffer);
-  if (parsed.headers.length === 0) throw new Error("No header row found.");
-  if (parsed.rows.length === 0) throw new Error("No data rows found.");
+  if (parsed.headers.length === 0) {
+    throw new ContactIntelUploadError("headers", "No header row found.");
+  }
+  if (parsed.rows.length === 0) {
+    throw new ContactIntelUploadError("rows", "No data rows found.");
+  }
 
   const fileHash = hashContactIntelBuffer(input.buffer);
   const mapping = guessContactIntelMapping(parsed.headers);

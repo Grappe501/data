@@ -6,6 +6,16 @@ export type ContactIntelParsedTable = {
   rows: Record<string, string>[];
 };
 
+export class ContactIntelUploadError extends Error {
+  constructor(
+    public readonly code: "file" | "size" | "ext" | "headers" | "rows" | "parse",
+    message: string,
+  ) {
+    super(message);
+    this.name = "ContactIntelUploadError";
+  }
+}
+
 const MAX_ROWS = 20_000;
 
 function sha256Hex(input: string | Buffer): string {
@@ -71,7 +81,12 @@ function parseCsvLine(line: string): string[] {
 }
 
 export function parseContactIntelXlsx(buf: Buffer): ContactIntelParsedTable {
-  const wb = XLSX.read(buf, { type: "buffer", raw: false, dense: false });
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(buf, { type: "buffer", raw: false, dense: false, cellFormula: false });
+  } catch {
+    throw new ContactIntelUploadError("parse", "Could not read that spreadsheet.");
+  }
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return { headers: [], rows: [] };
   const sheet = wb.Sheets[sheetName];

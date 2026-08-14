@@ -5,7 +5,17 @@ import { redirect } from "next/navigation";
 import { requireAdminAction } from "@/lib/auth";
 import { createContactIntelImportJob } from "@/lib/contact-intel/jobs";
 import { buildContactIntelMappingFromForm, guessContactIntelMapping } from "@/lib/contact-intel/mapping";
-import { CONTACT_INTEL_MAX_UPLOAD_BYTES } from "@/lib/contact-intel/parse";
+import { CONTACT_INTEL_MAX_UPLOAD_BYTES, ContactIntelUploadError } from "@/lib/contact-intel/parse";
+
+function isNextRedirect(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "digest" in err &&
+    typeof (err as { digest?: unknown }).digest === "string" &&
+    (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
 import { applyContactIntelMappingAndPreview, commitContactIntelImport } from "@/lib/contact-intel/pipeline";
 
 function trim(fd: FormData, key: string): string {
@@ -28,8 +38,10 @@ export async function uploadContactIntelFileAction(fd: FormData): Promise<void> 
     revalidatePath("/");
     revalidatePath("/import");
     redirect(`/import/${jobId}`);
-  } catch {
-    redirect("/import?error=parse");
+  } catch (err) {
+    if (isNextRedirect(err)) throw err;
+    const code = err instanceof ContactIntelUploadError ? err.code : "parse";
+    redirect(`/import?error=${code}`);
   }
 }
 

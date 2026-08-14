@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["xlsx", "@prisma/client"],
   experimental: {
     serverActions: {
-      bodySizeLimit: "9mb",
+      bodySizeLimit: "12mb",
     },
   },
 };

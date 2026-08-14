@@ -12,6 +12,8 @@ export default async function ImportPage({ searchParams }: Props) {
     <div>
       {error === "file" ? <p className="banner banner-error">Choose a CSV or XLSX file.</p> : null}
       {error === "size" ? <p className="banner banner-error">File is larger than 8MB. Split it and retry.</p> : null}
+      {error === "headers" ? <p className="banner banner-error">No header row found. Put column names on the first row.</p> : null}
+      {error === "rows" ? <p className="banner banner-error">No data rows found, or the file is over the 20,000-row limit.</p> : null}
       {error === "parse" ? <p className="banner banner-error">Could not read headers or rows from that file.</p> : null}
 
       <section className="card">
