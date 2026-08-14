@@ -6,8 +6,9 @@ import {
   hashContactIntelRow,
   parseContactIntelUpload,
 } from "@/lib/contact-intel/parse";
-import { guessContactIntelMapping } from "@/lib/contact-intel/mapping";
+import { oscarHasIdentity, proposeOscarMapping } from "@/lib/contact-intel/oscar";
 import { writeContactIntelJobProgress } from "@/lib/contact-intel/progress";
+import { applyContactIntelMappingAndPreview } from "@/lib/contact-intel/pipeline";
 
 export async function createContactIntelImportJob(input: {
   filename: string;
@@ -24,7 +25,18 @@ export async function createContactIntelImportJob(input: {
   }
 
   const fileHash = hashContactIntelBuffer(input.buffer);
-  const mapping = guessContactIntelMapping(parsed.headers);
+  const existingCustomFields = await prisma.contactIntelCustomFieldDefinition.findMany({
+    where: { active: true },
+    select: { key: true, label: true },
+  });
+  const oscar = await proposeOscarMapping({
+    filename: input.filename,
+    sourceLabel: input.sourceLabel,
+    headers: parsed.headers,
+    sampleRows: parsed.rows.slice(0, 8),
+    existingCustomFields,
+  });
+  const mapping = oscar.mapping;
 
   const job = await prisma.contactIntelImportJob.create({
     data: {
@@ -35,6 +47,7 @@ export async function createContactIntelImportJob(input: {
       mappingJson: mapping as unknown as Prisma.InputJsonValue,
       headerJson: parsed.headers as unknown as Prisma.InputJsonValue,
       statsJson: { uploadedRows: parsed.rows.length },
+      previewJson: { oscar: oscar.report } as unknown as Prisma.InputJsonValue,
     },
   });
 
@@ -64,6 +77,14 @@ export async function createContactIntelImportJob(input: {
       startedAt,
       message: "Saving uploaded rows…",
     });
+  }
+
+  if (oscar.report.autoApply && !oscar.report.needsReview && oscarHasIdentity(mapping)) {
+    try {
+      await applyContactIntelMappingAndPreview(job.id, mapping);
+    } catch {
+      /* leave the job uploaded so the operator can assign columns */
+    }
   }
 
   return job.id;

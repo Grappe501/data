@@ -50,6 +50,9 @@ h1, h2, h3 { font-family: Georgia, serif; color: var(--navy); }
 .banner { padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; }
 .banner-error { background: #fff1f2; border: 1px solid #fecdd3; color: #881337; }
 .banner-ok { background: var(--fog); border: 1px solid rgba(47, 93, 70, 0.3); color: var(--navy); }
+.banner-warn { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; }
+.banner-oscar { background: #eef2ff; border: 1px solid #c7d2fe; color: var(--navy); }
+.oscar-flag { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; color: #9a3412; }
 input, select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
 label { display: block; font-size: 12px; font-weight: 700; color: rgba(28, 36, 48, 0.8); margin-top: 12px; }
 .search { display: flex; gap: 8px; margin: 16px 0; }

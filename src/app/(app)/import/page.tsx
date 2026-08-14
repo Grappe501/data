@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { uploadContactIntelFileAction } from "@/app/actions";
+import { readOscarReport } from "@/lib/contact-intel/oscar";
 import { listContactIntelJobs } from "@/lib/contact-intel/queries";
 import { UploadForm } from "./UploadForm";
 
@@ -19,7 +20,10 @@ export default async function ImportPage({ searchParams }: Props) {
 
       <section className="card">
         <h2>Upload spreadsheet</h2>
-        <p className="lede">CSV or first-sheet XLSX. Map columns on the next screen. Extra columns stay as source data.</p>
+        <p className="lede">
+          CSV or first-sheet XLSX. Oscar reads the columns, creates custom fields for extra information, and asks you
+          only when he does not recognize the sheet. Your confirmation teaches him the next one.
+        </p>
         <UploadForm action={uploadContactIntelFileAction} />
       </section>
 
@@ -51,7 +55,12 @@ export default async function ImportPage({ searchParams }: Props) {
                     </Link>
                     {job.sourceLabel ? <div className="muted">{job.sourceLabel}</div> : null}
                   </td>
-                  <td>{job.status}</td>
+                  <td>
+                    {job.status}
+                    {readOscarReport(job.previewJson)?.needsReview && job.status === "UPLOADED" ? (
+                      <div className="oscar-flag">Oscar needs you</div>
+                    ) : null}
+                  </td>
                   <td>{job._count.rows}</td>
                   <td>{job._count.conflicts}</td>
                   <td className="muted">{job.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>

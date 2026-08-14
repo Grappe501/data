@@ -7,6 +7,7 @@ import {
   parseContactIntelTarget,
   type ContactIntelFieldTarget,
 } from "@/lib/contact-intel/mapping";
+import { readOscarReport } from "@/lib/contact-intel/oscar";
 import { getContactIntelJob, listContactIntelCustomFieldDefinitions } from "@/lib/contact-intel/queries";
 import { WorkingSubmit } from "../WorkingSubmit";
 
@@ -40,6 +41,19 @@ function asStats(json: unknown): Record<string, number> {
 
 function asMessages(json: unknown): string[] {
   return Array.isArray(json) ? json.map((v) => String(v)) : [];
+}
+
+function asCustomLabels(json: unknown): Record<string, string> {
+  if (!json || typeof json !== "object") return {};
+  const raw = (json as { customFields?: unknown }).customFields;
+  if (!Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as { key?: unknown; label?: unknown };
+    if (typeof rec.key === "string" && rec.key) out[rec.key] = String(rec.label ?? rec.key);
+  }
+  return out;
 }
 
 function asCustomPlan(json: unknown): { key: string; label: string; action: string }[] {
@@ -94,8 +108,10 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
 
   const headers = asStringArray(job.headerJson);
   const mapping = asMapping(job.mappingJson);
+  const customLabels = asCustomLabels(job.mappingJson);
   const stats = asStats(job.statsJson);
   const customPlan = asCustomPlan(job.previewJson);
+  const oscar = readOscarReport(job.previewJson);
   const previewRows = job.rows.slice(0, 8);
   const canCommit = job.status === "PREVIEWED";
 
@@ -107,6 +123,22 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
         </Link>
       </p>
       {committed ? <p className="banner banner-ok">Import committed. Invalid and conflict rows were left out of the library.</p> : null}
+      {oscar?.mode === "needs_you" ? (
+        <p className="banner banner-warn">
+          <strong>Oscar needs you.</strong> {oscar.summary}
+          {oscar.unknownHeaders.length > 0 ? ` Assign: ${oscar.unknownHeaders.join(", ")}.` : ""} After you apply the mapping, he will remember this sheet.
+        </p>
+      ) : null}
+      {oscar?.mode === "recognized" ? (
+        <p className="banner banner-ok">
+          <strong>Oscar recognized this sheet.</strong> {oscar.summary}
+        </p>
+      ) : null}
+      {oscar?.mode === "proposed" ? (
+        <p className="banner banner-oscar">
+          <strong>Oscar proposed a mapping.</strong> {oscar.summary} Apply preview to teach him this sheet.
+        </p>
+      ) : null}
 
       <section className="card">
         <h2>{job.originalFilename}</h2>
@@ -119,8 +151,8 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
         <section className="card">
           <h3>Map columns</h3>
           <p className="lede">
-            Assign each source column. Addresses, tags, and custom fields enrich after email/phone matching and never
-            merge people. Unmapped columns stay on the original row.
+            Oscar pre-assigns columns and creates custom fields for extra information. Correct anything he missed, then
+            apply preview — that confirmation is how he learns the next similar sheet.
           </p>
           <form action={previewContactIntelMappingAction}>
             <input type="hidden" name="jobId" value={job.id} />
@@ -147,6 +179,8 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
                       <tr key={header}>
                         <td>
                           <strong>{header}</strong>
+                          {oscar?.columnNotes[header] ? <div className="muted">{oscar.columnNotes[header]}</div> : null}
+                          {oscar?.unknownHeaders.includes(header) ? <div className="oscar-flag">Needs you</div> : null}
                         </td>
                         <td>
                           <select name={`map:${header}`} defaultValue={customKey ? "custom" : target}>
@@ -169,7 +203,11 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
                             <input name={`customKey:${header}`} defaultValue={customKey ?? ""} placeholder="key e.g. employer" />
                             <input
                               name={`customLabel:${header}`}
-                              defaultValue={customDefs.find((d) => d.key === customKey)?.label ?? header}
+                              defaultValue={
+                                customDefs.find((d) => d.key === customKey)?.label ??
+                                (customKey ? customLabels[customKey] : undefined) ??
+                                header
+                              }
                               placeholder="Label e.g. Employer"
                             />
                           </div>

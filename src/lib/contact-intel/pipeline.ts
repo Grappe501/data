@@ -10,6 +10,7 @@ import {
 import { formatAddressPreview } from "@/lib/contact-intel/enrichment";
 import type { ContactIntelMapping, ExtractedMethod } from "@/lib/contact-intel/mapping";
 import type { ClassifiedContactIntelRow } from "@/lib/contact-intel/classify";
+import { markOscarLearned } from "@/lib/contact-intel/oscar";
 import { writeContactIntelJobProgress } from "@/lib/contact-intel/progress";
 
 export type { ContactIntelPreviewStats };
@@ -115,6 +116,7 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
       mappingJson: mapping as unknown as Prisma.InputJsonValue,
       statsJson: stats as unknown as Prisma.InputJsonValue,
       previewJson: {
+        ...markOscarLearned(job.previewJson, mapping),
         generatedAt: new Date().toISOString(),
         customFields: customPlan,
         progress: {

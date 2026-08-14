@@ -35,7 +35,11 @@ export function UploadForm({ action }: Props) {
           }}
         />
       </label>
-      <WorkingSubmit label="Upload and map" pendingLabel="Uploading and saving rows…" fileHint={hint} />
+      <WorkingSubmit
+        label="Upload and map"
+        pendingLabel="Oscar is reading the columns, then the rows are saved…"
+        fileHint={hint}
+      />
     </form>
   );
 }
