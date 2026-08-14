@@ -47,6 +47,39 @@ export default async function PersonPage({ params }: Props) {
           </ul>
         </div>
       </section>
+      <section className="grid grid-2">
+        <div className="card">
+          <h3>Addresses</h3>
+          <p className="muted">Imported source values. Not used to match or merge people.</p>
+          <ul>
+            {person.addresses.length === 0 ? <li className="muted">None</li> : null}
+            {person.addresses.map((a) => (
+              <li key={a.id}>{[a.line, a.city, a.state, a.postalCode].filter(Boolean).join(", ") || "Partial address"}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="card">
+          <h3>Tags</h3>
+          <ul>
+            {person.personTags.length === 0 ? <li className="muted">None</li> : null}
+            {person.personTags.map((pt) => (
+              <li key={pt.id}>{pt.tag.name}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+      <section className="card">
+        <h3>Custom fields</h3>
+        <p className="muted">Current imported values. Earlier observations stay on source rows.</p>
+        <ul>
+          {person.customValues.length === 0 ? <li className="muted">None</li> : null}
+          {person.customValues.map((v) => (
+            <li key={v.id}>
+              <strong>{v.definition.label}</strong> {v.originalValue}
+            </li>
+          ))}
+        </ul>
+      </section>
       <section className="card">
         <h3>Source rows</h3>
         <div className="scroll">

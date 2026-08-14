@@ -2,6 +2,7 @@
  * Pure mapping/normalize checks (no DB, no PII).
  */
 import assert from "node:assert/strict";
+import { splitContactIntelTags, normalizeCustomFieldKey } from "../src/lib/contact-intel/enrichment";
 import { extractContactIntelRow, guessContactIntelMapping, isValidContactIntelExtract } from "../src/lib/contact-intel/mapping";
 import { parseContactIntelCsv } from "../src/lib/contact-intel/parse";
 
@@ -33,5 +34,38 @@ assert.equal(isValidContactIntelExtract(row1), true);
 
 const row2 = extractContactIntelRow(parsed.rows[2]!, mapping);
 assert.equal(isValidContactIntelExtract(row2), false);
+
+const tags = splitContactIntelTags("Volunteer; Donor, Pulaski County");
+assert.deepEqual(tags.map((t) => t.name), ["Volunteer", "Donor", "Pulaski County"]);
+assert.equal(normalizeCustomFieldKey("Employer"), "employer");
+
+const enrichRow = extractContactIntelRow(
+  {
+    Email: "alex@example.com",
+    Address: "123 Example Street",
+    City: "Little Rock",
+    State: "AR",
+    ZIP: "72201",
+    Tags: "Volunteer; Donor, Pulaski County",
+    Employer: "Acme Cooperative",
+    Notes: "keep extra",
+  },
+  {
+    columns: {
+      Email: "email",
+      Address: "address",
+      City: "city",
+      State: "state",
+      ZIP: "zip",
+      Tags: "tag",
+      Employer: "custom:employer",
+      Notes: "ignore",
+    },
+  },
+);
+assert.equal(enrichRow.address?.state, "AR");
+assert.equal(enrichRow.tags.length, 3);
+assert.equal(enrichRow.custom[0]?.key, "employer");
+assert.equal(isValidContactIntelExtract(enrichRow), true);
 
 console.log("contact-intel normalize check passed");

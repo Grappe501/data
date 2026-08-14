@@ -49,11 +49,21 @@ export async function getContactIntelPerson(id: string) {
     where: { id },
     include: {
       methods: { orderBy: { createdAt: "asc" } },
+      addresses: { orderBy: { createdAt: "asc" } },
+      personTags: { include: { tag: true }, orderBy: { createdAt: "asc" } },
+      customValues: { include: { definition: true }, orderBy: { createdAt: "asc" } },
       sourceRows: {
         orderBy: { createdAt: "desc" },
         include: { job: { select: { id: true, originalFilename: true, sourceLabel: true, createdAt: true } } },
       },
     },
+  });
+}
+
+export async function listContactIntelCustomFieldDefinitions() {
+  return prisma.contactIntelCustomFieldDefinition.findMany({
+    where: { active: true },
+    orderBy: { label: "asc" },
   });
 }
 

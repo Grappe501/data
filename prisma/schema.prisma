@@ -38,6 +38,10 @@ enum ContactIntelConflictStatus {
   DISMISSED
 }
 
+enum ContactIntelCustomFieldType {
+  TEXT
+}
+
 model ContactIntelPerson {
   id          String   @id @default(cuid())
   displayName String
@@ -50,6 +54,9 @@ model ContactIntelPerson {
   sourceRows     ContactIntelSourceRow[]
   conflictsLeft  ContactIntelConflict[]  @relation("ContactIntelConflictLeft")
   conflictsRight ContactIntelConflict[]  @relation("ContactIntelConflictRight")
+  addresses      ContactIntelAddress[]
+  personTags     ContactIntelPersonTag[]
+  customValues   ContactIntelCustomFieldValue[]
 
   @@index([displayName])
   @@index([updatedAt])
@@ -108,11 +115,15 @@ model ContactIntelSourceRow {
   phonesJson   Json                        @default("[]")
   personId     String?
   person       ContactIntelPerson?         @relation(fields: [personId], references: [id], onDelete: SetNull)
-  messagesJson Json                        @default("[]")
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
+  messagesJson   Json                        @default("[]")
+  enrichmentJson Json                        @default("{}")
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
 
-  conflicts ContactIntelConflict[]
+  conflicts    ContactIntelConflict[]
+  addresses    ContactIntelAddress[]
+  personTags   ContactIntelPersonTag[]
+  customValues ContactIntelCustomFieldValue[]
 
   @@unique([jobId, rowNumber])
   @@index([jobId, status])
@@ -136,5 +147,82 @@ model ContactIntelConflict {
   updatedAt     DateTime                   @updatedAt
 
   @@index([jobId, status])
+  @@index([sourceRowId])
+}
+
+model ContactIntelAddress {
+  id           String                 @id @default(cuid())
+  personId     String
+  person       ContactIntelPerson     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  line         String?                @db.VarChar(500)
+  city         String?                @db.VarChar(200)
+  state        String?                @db.VarChar(80)
+  postalCode   String?                @db.VarChar(20)
+  originalJson Json                   @default("{}")
+  fingerprint  String                 @db.VarChar(64)
+  sourceRowId  String?
+  sourceRow    ContactIntelSourceRow? @relation(fields: [sourceRowId], references: [id], onDelete: SetNull)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([personId, fingerprint])
+  @@index([personId])
+  @@index([fingerprint])
+  @@index([sourceRowId])
+}
+
+model ContactIntelTag {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(200)
+  key       String   @unique @db.VarChar(200)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  people ContactIntelPersonTag[]
+}
+
+model ContactIntelPersonTag {
+  id          String                 @id @default(cuid())
+  personId    String
+  person      ContactIntelPerson     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tagId       String
+  tag         ContactIntelTag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  sourceRowId String?
+  sourceRow   ContactIntelSourceRow? @relation(fields: [sourceRowId], references: [id], onDelete: SetNull)
+  createdAt   DateTime               @default(now())
+
+  @@unique([personId, tagId])
+  @@index([tagId])
+  @@index([sourceRowId])
+}
+
+model ContactIntelCustomFieldDefinition {
+  id        String                      @id @default(cuid())
+  key       String                      @unique @db.VarChar(80)
+  label     String                      @db.VarChar(200)
+  type      ContactIntelCustomFieldType @default(TEXT)
+  active    Boolean                     @default(true)
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+
+  values ContactIntelCustomFieldValue[]
+}
+
+model ContactIntelCustomFieldValue {
+  id              String                            @id @default(cuid())
+  personId        String
+  person          ContactIntelPerson                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  definitionId    String
+  definition      ContactIntelCustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  originalValue   String                            @db.Text
+  normalizedValue String                            @db.VarChar(500)
+  sourceRowId     String?
+  sourceRow       ContactIntelSourceRow?            @relation(fields: [sourceRowId], references: [id], onDelete: SetNull)
+  createdAt       DateTime                          @default(now())
+  updatedAt       DateTime                          @updatedAt
+
+  @@unique([personId, definitionId])
+  @@index([definitionId])
+  @@index([normalizedValue])
   @@index([sourceRowId])
 }
