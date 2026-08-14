@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { uploadContactIntelFileAction } from "@/app/actions";
 import { readOscarReport } from "@/lib/contact-intel/oscar";
+import { listOscarSheetMemory } from "@/lib/contact-intel/oscar-lessons";
 import { listContactIntelJobs } from "@/lib/contact-intel/queries";
 import { UploadForm } from "./UploadForm";
 
@@ -8,7 +9,7 @@ type Props = { searchParams: Promise<{ error?: string }> };
 
 export default async function ImportPage({ searchParams }: Props) {
   const { error } = await searchParams;
-  const jobs = await listContactIntelJobs(50);
+  const [jobs, memories] = await Promise.all([listContactIntelJobs(50), listOscarSheetMemory()]);
 
   return (
     <div>
@@ -25,6 +26,13 @@ export default async function ImportPage({ searchParams }: Props) {
           only when he does not recognize the sheet. Your confirmation teaches him the next one.
         </p>
         <UploadForm action={uploadContactIntelFileAction} />
+        <p className="muted">
+          Oscar already knows{" "}
+          <Link className="plain" href="/memory">
+            {memories.length} sheet shape{memories.length === 1 ? "" : "s"}
+          </Link>
+          . A first-time layout still needs you once.
+        </p>
       </section>
 
       <h2>Import jobs</h2>

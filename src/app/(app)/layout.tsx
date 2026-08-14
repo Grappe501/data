@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <Link href="/">Library</Link>
           <Link href="/review/dedupe">De-dupe</Link>
           <Link href="/review/voters">Voter queue</Link>
+          <Link href="/memory">Sheet memory</Link>
           <Link className="btn-fog" href="/import">
             Import
           </Link>

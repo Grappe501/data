@@ -1,9 +1,15 @@
+import { createHash } from "node:crypto";
+
 export function normalizeOscarHeader(header: string): string {
   return header.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 }
 
 export function oscarHeaderFingerprint(headers: string[]): string {
   return [...new Set(headers.map(normalizeOscarHeader).filter(Boolean))].sort().join("|");
+}
+
+export function oscarShapeId(headers: string[]): string {
+  return createHash("sha256").update(oscarHeaderFingerprint(headers)).digest("hex").slice(0, 16);
 }
 
 export function oscarHeaderJaccard(a: string[], b: string[]): number {
