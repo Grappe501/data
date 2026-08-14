@@ -50,6 +50,16 @@ export async function requireAdminPage(): Promise<void> {
   if (!verifyAdminSessionToken(token, secret)) redirect("/login");
 }
 
+export async function requireAdminApi(): Promise<Response | null> {
+  const h = await headers();
+  if (isLocalDevHost(h.get("host"))) return null;
+  const secret = getAdminSecret();
+  if (!secret) return Response.json({ error: "Admin is not configured." }, { status: 503 });
+  const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
+  if (!verifyAdminSessionToken(token, secret)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  return null;
+}
+
 export async function requireAdminAction(): Promise<void> {
   const h = await headers();
   if (isLocalDevHost(h.get("host"))) return;

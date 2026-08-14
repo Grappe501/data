@@ -8,6 +8,7 @@ import {
   type ContactIntelFieldTarget,
 } from "@/lib/contact-intel/mapping";
 import { getContactIntelJob, listContactIntelCustomFieldDefinitions } from "@/lib/contact-intel/queries";
+import { WorkingSubmit } from "../WorkingSubmit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -181,9 +182,11 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
               </table>
             </div>
             <p>
-              <button className="btn btn-fog" type="submit">
-                Apply mapping and preview
-              </button>
+              <WorkingSubmit
+                label="Apply mapping and preview"
+                pendingLabel="Applying mapping and writing preview…"
+                jobId={job.id}
+              />
             </p>
           </form>
         </section>
@@ -214,9 +217,12 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
             <form action={commitContactIntelImportAction}>
               <input type="hidden" name="jobId" value={job.id} />
               <p>
-                <button className="btn btn-primary" type="submit">
-                  Commit import
-                </button>
+                <WorkingSubmit
+                  className="btn btn-primary"
+                  label="Commit import"
+                  pendingLabel="Committing people and methods…"
+                  jobId={job.id}
+                />
               </p>
             </form>
           ) : null}

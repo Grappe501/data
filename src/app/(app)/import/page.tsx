@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { uploadContactIntelFileAction } from "@/app/actions";
 import { listContactIntelJobs } from "@/lib/contact-intel/queries";
+import { UploadForm } from "./UploadForm";
 
 type Props = { searchParams: Promise<{ error?: string }> };
 
@@ -19,21 +20,7 @@ export default async function ImportPage({ searchParams }: Props) {
       <section className="card">
         <h2>Upload spreadsheet</h2>
         <p className="lede">CSV or first-sheet XLSX. Map columns on the next screen. Extra columns stay as source data.</p>
-        <form action={uploadContactIntelFileAction}>
-          <label>
-            Source label (optional)
-            <input name="sourceLabel" placeholder="e.g. 2024 county fair sheet" />
-          </label>
-          <label>
-            File
-            <input name="file" type="file" accept=".csv,.xlsx,.xls,text/csv" required />
-          </label>
-          <p>
-            <button className="btn btn-fog" type="submit">
-              Upload and map
-            </button>
-          </p>
-        </form>
+        <UploadForm action={uploadContactIntelFileAction} />
       </section>
 
       <h2>Import jobs</h2>

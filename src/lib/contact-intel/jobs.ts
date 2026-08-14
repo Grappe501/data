@@ -7,6 +7,7 @@ import {
   parseContactIntelUpload,
 } from "@/lib/contact-intel/parse";
 import { guessContactIntelMapping } from "@/lib/contact-intel/mapping";
+import { writeContactIntelJobProgress } from "@/lib/contact-intel/progress";
 
 export async function createContactIntelImportJob(input: {
   filename: string;
@@ -37,7 +38,15 @@ export async function createContactIntelImportJob(input: {
     },
   });
 
+  const startedAt = new Date().toISOString();
   const chunkSize = 400;
+  await writeContactIntelJobProgress(job.id, {
+    phase: "upload",
+    done: 0,
+    total: parsed.rows.length,
+    startedAt,
+    message: "Saving uploaded rows…",
+  });
   for (let i = 0; i < parsed.rows.length; i += chunkSize) {
     const slice = parsed.rows.slice(i, i + chunkSize);
     await prisma.contactIntelSourceRow.createMany({
@@ -47,6 +56,13 @@ export async function createContactIntelImportJob(input: {
         rawJson: raw as unknown as Prisma.InputJsonValue,
         rowHash: hashContactIntelRow(raw),
       })),
+    });
+    await writeContactIntelJobProgress(job.id, {
+      phase: "upload",
+      done: Math.min(i + chunkSize, parsed.rows.length),
+      total: parsed.rows.length,
+      startedAt,
+      message: "Saving uploaded rows…",
     });
   }
 

@@ -10,6 +10,7 @@ import {
 import { formatAddressPreview } from "@/lib/contact-intel/enrichment";
 import type { ContactIntelMapping, ExtractedMethod } from "@/lib/contact-intel/mapping";
 import type { ClassifiedContactIntelRow } from "@/lib/contact-intel/classify";
+import { writeContactIntelJobProgress } from "@/lib/contact-intel/progress";
 
 export type { ContactIntelPreviewStats };
 
@@ -34,6 +35,15 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
   });
   if (!job) throw new Error("Import job not found.");
   if (job.status === "COMMITTED") throw new Error("This import is already committed.");
+
+  const startedAt = new Date().toISOString();
+  await writeContactIntelJobProgress(jobId, {
+    phase: "preview",
+    done: 0,
+    total: job.rows.length,
+    startedAt,
+    message: "Classifying rows…",
+  });
 
   const index = await loadMethodIndex();
   const existingDefs = await prisma.contactIntelCustomFieldDefinition.findMany({
@@ -79,9 +89,23 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
   });
 
   const chunkSize = 40;
+  await writeContactIntelJobProgress(jobId, {
+    phase: "preview",
+    done: 0,
+    total: staging.length,
+    startedAt,
+    message: "Saving preview…",
+  });
   for (let i = 0; i < staging.length; i += chunkSize) {
     const slice = staging.slice(i, i + chunkSize);
     await prisma.$transaction(slice.map((item) => prisma.contactIntelSourceRow.update({ where: { id: item.id }, data: item.data })));
+    await writeContactIntelJobProgress(jobId, {
+      phase: "preview",
+      done: Math.min(i + chunkSize, staging.length),
+      total: staging.length,
+      startedAt,
+      message: "Saving preview…",
+    });
   }
 
   await prisma.contactIntelImportJob.update({
@@ -93,6 +117,13 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
       previewJson: {
         generatedAt: new Date().toISOString(),
         customFields: customPlan,
+        progress: {
+          phase: "done",
+          done: staging.length,
+          total: staging.length,
+          startedAt,
+          message: "Preview ready",
+        },
       } as unknown as Prisma.InputJsonValue,
       errorSummary: null,
     },
@@ -122,8 +153,17 @@ export async function commitContactIntelImport(jobId: string) {
   if (job.status === "COMMITTED") throw new Error("This import is already committed.");
   if (job.status !== "PREVIEWED") throw new Error("Preview the mapping before committing.");
 
+  const startedAt = new Date().toISOString();
+  await writeContactIntelJobProgress(jobId, {
+    phase: "commit",
+    done: 0,
+    total: job.rows.length,
+    startedAt,
+    message: "Committing rows…",
+  });
+
   try {
-    return await prisma.$transaction(
+    const stats = await prisma.$transaction(
       async (tx) => {
         const methods = await tx.contactIntelMethod.findMany({
           select: { kind: true, normalizedValue: true, personId: true },
@@ -170,6 +210,18 @@ export async function commitContactIntelImport(jobId: string) {
         let committedRows = 0;
         let conflictRows = 0;
         let invalidRows = 0;
+        let processed = 0;
+        const bumpProgress = async () => {
+          processed += 1;
+          if (processed % 40 !== 0 && processed !== classified.length) return;
+          await writeContactIntelJobProgress(jobId, {
+            phase: "commit",
+            done: processed,
+            total: classified.length,
+            startedAt,
+            message: "Committing rows…",
+          });
+        };
 
         for (const row of classified) {
           const persisted = job.rows.find((r) => r.rowNumber === row.rowNumber);
@@ -184,6 +236,7 @@ export async function commitContactIntelImport(jobId: string) {
                 messagesJson: row.messages as unknown as Prisma.InputJsonValue,
               },
             });
+            await bumpProgress();
             continue;
           }
 
@@ -210,6 +263,7 @@ export async function commitContactIntelImport(jobId: string) {
                 messagesJson: row.messages as unknown as Prisma.InputJsonValue,
               },
             });
+            await bumpProgress();
             continue;
           }
 
@@ -223,6 +277,7 @@ export async function commitContactIntelImport(jobId: string) {
               data: { status: "CONFLICT", messagesJson: ["Email and phone match different people."] },
             });
             conflictRows += 1;
+            await bumpProgress();
             continue;
           }
 
@@ -301,6 +356,7 @@ export async function commitContactIntelImport(jobId: string) {
             },
           });
           committedRows += 1;
+          await bumpProgress();
         }
 
         const stats = {
@@ -334,6 +390,14 @@ export async function commitContactIntelImport(jobId: string) {
       },
       { timeout: 120_000, maxWait: 20_000 },
     );
+    await writeContactIntelJobProgress(jobId, {
+      phase: "done",
+      done: job.rows.length,
+      total: job.rows.length,
+      startedAt,
+      message: "Commit finished",
+    });
+    return stats;
   } catch (err) {
     const message = err instanceof Error ? err.message.slice(0, 400) : "Commit failed.";
     await prisma.contactIntelImportJob.update({
