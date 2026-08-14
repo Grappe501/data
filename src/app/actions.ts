@@ -17,6 +17,11 @@ function isNextRedirect(err: unknown): boolean {
   );
 }
 import { applyContactIntelMappingAndPreview, commitContactIntelImport } from "@/lib/contact-intel/pipeline";
+import {
+  dismissContactIntelConflict,
+  markContactIntelVoterNoMatch,
+  saveContactIntelVoterId,
+} from "@/lib/contact-intel/review";
 
 function trim(fd: FormData, key: string): string {
   const v = fd.get(key);
@@ -73,4 +78,34 @@ export async function commitContactIntelImportAction(fd: FormData): Promise<void
   revalidatePath(`/import/${jobId}`);
   revalidatePath("/");
   redirect(`/import/${jobId}?committed=1`);
+}
+
+export async function dismissContactIntelConflictAction(fd: FormData): Promise<void> {
+  await requireAdminAction();
+  const id = trim(fd, "conflictId");
+  if (!id) return;
+  await dismissContactIntelConflict(id);
+  revalidatePath("/review/dedupe");
+  revalidatePath("/");
+}
+
+export async function saveContactIntelVoterIdAction(fd: FormData): Promise<void> {
+  await requireAdminAction();
+  const personId = trim(fd, "personId");
+  const voterId = trim(fd, "voterId");
+  if (!personId) return;
+  await saveContactIntelVoterId({ personId, voterId, note: trim(fd, "note") || null });
+  revalidatePath(`/contacts/${personId}`);
+  revalidatePath("/review/voters");
+  revalidatePath("/");
+}
+
+export async function markContactIntelVoterNoMatchAction(fd: FormData): Promise<void> {
+  await requireAdminAction();
+  const personId = trim(fd, "personId");
+  if (!personId) return;
+  await markContactIntelVoterNoMatch(personId);
+  revalidatePath(`/contacts/${personId}`);
+  revalidatePath("/review/voters");
+  revalidatePath("/");
 }

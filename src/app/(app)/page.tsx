@@ -26,6 +26,24 @@ export default async function LibraryPage({ searchParams }: Props) {
           <div className="stat-label">Imports</div>
           <div className="stat-value">{stats.jobs}</div>
         </div>
+        <div className="card">
+          <div className="stat-label">De-dupe open</div>
+          <div className="stat-value">{stats.openConflicts}</div>
+          <p>
+            <Link className="plain" href="/review/dedupe">
+              Queue
+            </Link>
+          </p>
+        </div>
+        <div className="card">
+          <div className="stat-label">Need voter ID</div>
+          <div className="stat-value">{stats.unmatchedVoters}</div>
+          <p>
+            <Link className="plain" href="/review/voters">
+              Queue
+            </Link>
+          </p>
+        </div>
       </section>
 
       <form className="search" action="/" method="get">
@@ -42,13 +60,14 @@ export default async function LibraryPage({ searchParams }: Props) {
               <th>Person</th>
               <th>Emails</th>
               <th>Phones</th>
+              <th>Voter</th>
             </tr>
           </thead>
           <tbody>
             {people.length === 0 ? (
               <tr>
-                <td colSpan={3} className="muted">
-                  {q ? "No matches." : "No contacts yet. Import a spreadsheet to start."}
+                <td colSpan={4} className="muted">
+                  {q ? "No matches." : "No contacts yet. Import a spreadsheet to start. Click a name to open the full file."}
                 </td>
               </tr>
             ) : (
@@ -64,6 +83,7 @@ export default async function LibraryPage({ searchParams }: Props) {
                     </td>
                     <td>{emails.map((m) => m.normalizedValue).join(", ") || "—"}</td>
                     <td>{phones.map((m) => m.originalValue).join(", ") || "—"}</td>
+                    <td className="muted">{person.voterMatch?.voterId || person.voterMatch?.status || "unmatched"}</td>
                   </tr>
                 );
               })

@@ -42,6 +42,19 @@ enum ContactIntelCustomFieldType {
   TEXT
 }
 
+enum ContactIntelVoterMatchStatus {
+  UNMATCHED
+  NEEDS_REVIEW
+  MATCHED
+  NO_MATCH
+}
+
+enum ContactIntelVoterMatchMethod {
+  MANUAL
+  OSCAR
+  GEO
+}
+
 model ContactIntelPerson {
   id          String   @id @default(cuid())
   displayName String
@@ -57,6 +70,7 @@ model ContactIntelPerson {
   addresses      ContactIntelAddress[]
   personTags     ContactIntelPersonTag[]
   customValues   ContactIntelCustomFieldValue[]
+  voterMatch     ContactIntelVoterMatch?
 
   @@index([displayName])
   @@index([updatedAt])
@@ -225,4 +239,24 @@ model ContactIntelCustomFieldValue {
   @@index([definitionId])
   @@index([normalizedValue])
   @@index([sourceRowId])
+}
+
+/// Operator-owned voter ID link. Does not write VoterRecord / voter-file tables.
+model ContactIntelVoterMatch {
+  id           String                       @id @default(cuid())
+  personId     String                       @unique
+  person       ContactIntelPerson           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status       ContactIntelVoterMatchStatus @default(UNMATCHED)
+  voterId      String?                      @db.VarChar(80)
+  confidence   Int                          @default(0)
+  method       ContactIntelVoterMatchMethod @default(MANUAL)
+  ladderJson   Json                         @default("{}")
+  oscarNote    String?                      @db.Text
+  evidenceJson Json                         @default("{}")
+  matchedAt    DateTime?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+
+  @@index([status, updatedAt])
+  @@index([voterId])
 }
