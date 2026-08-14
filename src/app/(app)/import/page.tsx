@@ -17,7 +17,7 @@ export default async function ImportPage({ searchParams }: Props) {
       <section className="card">
         <h2>Upload spreadsheet</h2>
         <p className="lede">CSV or first-sheet XLSX. Map columns on the next screen. Extra columns stay as source data.</p>
-        <form action={uploadContactIntelFileAction} encType="multipart/form-data">
+        <form action={uploadContactIntelFileAction}>
           <label>
             Source label (optional)
             <input name="sourceLabel" placeholder="e.g. 2024 county fair sheet" />
