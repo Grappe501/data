@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <nav className="nav">
           <Link href="/">Library</Link>
           <Link href="/review/dedupe">De-dupe</Link>
+          <Link href="/review/set">Review set</Link>
           <Link href="/review/voters">Voter queue</Link>
           <Link href="/memory">Sheet memory</Link>
           <Link className="btn-fog" href="/import">

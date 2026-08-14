@@ -22,6 +22,7 @@ import {
   markContactIntelVoterNoMatch,
   saveContactIntelVoterId,
 } from "@/lib/contact-intel/review";
+import { markContactIntelPeopleReview, tagContactIntelPeople } from "@/lib/contact-intel/working-set";
 
 function trim(fd: FormData, key: string): string {
   const v = fd.get(key);
@@ -108,4 +109,39 @@ export async function markContactIntelVoterNoMatchAction(fd: FormData): Promise<
   revalidatePath(`/contacts/${personId}`);
   revalidatePath("/review/voters");
   revalidatePath("/");
+}
+
+function safeReturnTo(raw: string): string {
+  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/";
+}
+
+function personIdsFrom(fd: FormData): string[] {
+  return fd.getAll("personId").map((v) => String(v).trim()).filter(Boolean);
+}
+
+export async function tagContactIntelWorkingSetAction(fd: FormData): Promise<void> {
+  await requireAdminAction();
+  const returnTo = safeReturnTo(trim(fd, "returnTo"));
+  try {
+    await tagContactIntelPeople(personIdsFrom(fd), trim(fd, "tag"));
+  } catch {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}set=empty`);
+  }
+  revalidatePath("/");
+  revalidatePath("/review/set");
+  redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}set=tagged`);
+}
+
+export async function markContactIntelReviewAction(fd: FormData): Promise<void> {
+  await requireAdminAction();
+  const returnTo = safeReturnTo(trim(fd, "returnTo"));
+  try {
+    await markContactIntelPeopleReview(personIdsFrom(fd));
+  } catch {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}set=empty`);
+  }
+  revalidatePath("/");
+  revalidatePath("/review/set");
+  redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}set=reviewed`);
 }
