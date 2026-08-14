@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/run-with-h-drive-env.cjs next dev -p 3005",
-    "build": "node scripts/run-with-h-drive-env.cjs next build",
+    "postinstall": "node scripts/prisma-generate.cjs",
+    "build": "node scripts/prisma-generate.cjs && node scripts/run-with-h-drive-env.cjs next build",
     "start": "node scripts/run-with-h-drive-env.cjs next start -p 3005",
     "typecheck": "node scripts/run-with-h-drive-env.cjs tsc --noEmit",
-    "prisma:generate": "node scripts/run-with-h-drive-env.cjs npx prisma generate",
+    "prisma:generate": "node scripts/prisma-generate.cjs",
     "normalize-check": "node scripts/run-with-h-drive-env.cjs node ./node_modules/tsx/dist/cli.mjs scripts/verify-normalize.ts"
   },
   "dependencies": {

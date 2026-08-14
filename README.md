@@ -21,6 +21,8 @@ node scripts/run-with-h-drive-env.cjs npm run prisma:generate
 node scripts/run-with-h-drive-env.cjs npm run dev
 ```
 
+Netlify must run `prisma generate` before `next build` (`postinstall` + `npm run build`). Set `DATABASE_URL` in the Netlify site env (Neon extension or the RedDirt Postgres URL). Do not run `prisma migrate deploy` from this repo.
+
 Open [http://localhost:3005](http://localhost:3005)
 
 The wrapper loads `H:\SOSWebsite\RedDirt\.env` and `.env.local` (DATABASE_URL, DIRECT_URL, ADMIN_SECRET) without copying those files into this repo.

@@ -4,6 +4,9 @@ import { commitContactIntelImportAction, previewContactIntelMappingAction } from
 import { CONTACT_INTEL_FIELD_TARGETS, type ContactIntelFieldTarget } from "@/lib/contact-intel/mapping";
 import { getContactIntelJob } from "@/lib/contact-intel/queries";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ committed?: string }> };
 
 function asStringArray(json: unknown): string[] {
