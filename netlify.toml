@@ -1,6 +1,10 @@
 [build]
   command = "npm run build"
   publish = ".next"
+  # Local-first: skip automatic production builds. Keep this file so a later
+  # authenticated remote deploy can be restored. Remove or change ignore to
+  # re-enable publishing after migration + security review.
+  ignore = "exit 0"
 
 [build.environment]
   NODE_VERSION = "22"

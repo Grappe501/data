@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/run-with-h-drive-env.cjs next dev -p 3005",
+    "local": "node scripts/run-local.cjs",
     "postinstall": "node scripts/prisma-generate.cjs",
     "build": "node scripts/prisma-generate.cjs && node scripts/run-with-h-drive-env.cjs next build",
     "start": "node scripts/run-with-h-drive-env.cjs next start -p 3005",
