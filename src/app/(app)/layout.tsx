@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <Link href="/review/set">Review set</Link>
           <Link href="/review/voters">Voter queue</Link>
           <Link href="/memory">Sheet memory</Link>
+          <Link href="/oscar">Oscar</Link>
           <Link className="btn-fog" href="/import">
             Import
           </Link>

@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/db";
 import { normalizeCustomFieldKey } from "@/lib/contact-intel/enrichment";
+import { findOscarQueryLesson, rememberOscarLesson } from "@/lib/contact-intel/oscar-memory";
 
 export type OscarAskIntent = "people" | "catalog";
 export type OscarAskCatalog = "custom_fields" | "tags" | "sheets";
@@ -215,6 +216,14 @@ async function parseOscarAskOpenAi(question: string, catalog: Awaited<ReturnType
 }
 
 export async function planOscarAsk(question: string): Promise<OscarAskPlan> {
+  const learned = await findOscarQueryLesson(question);
+  const raw = learned?.payloadJson;
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && (raw as { intent?: unknown }).intent) {
+    const plan = raw as OscarAskPlan;
+    if (plan.intent === "people" || plan.intent === "catalog") {
+      return { ...plan, summary: `${plan.summary} Oscar reused a learned question.` };
+    }
+  }
   const heuristic = parseOscarAskHeuristic(question);
   const catalog = await loadAskCatalog();
   const ai = await parseOscarAskOpenAi(question, catalog);
@@ -229,6 +238,7 @@ export async function runOscarAsk(question: string, take = 100) {
   const plan = await planOscarAsk(question);
   if (plan.intent === "catalog") {
     const rows = await loadOscarCatalog(plan.catalog ?? "custom_fields");
+    await rememberOscarLesson({ kind: "query", key: question, label: plan.summary, payload: plan });
     return { plan, people: [], catalog: rows, total: rows.length };
   }
 
@@ -299,6 +309,7 @@ export async function runOscarAsk(question: string, take = 100) {
     }),
     prisma.contactIntelPerson.count({ where }),
   ]);
+  await rememberOscarLesson({ kind: "query", key: question, label: plan.summary, payload: plan });
   return { plan, people, catalog: [] as OscarAskCatalogRow[], total };
 }
 
