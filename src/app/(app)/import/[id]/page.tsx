@@ -181,13 +181,11 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
                 </tbody>
               </table>
             </div>
-            <p>
-              <WorkingSubmit
-                label="Apply mapping and preview"
-                pendingLabel="Applying mapping and writing preview…"
-                jobId={job.id}
-              />
-            </p>
+            <WorkingSubmit
+              label="Apply mapping and preview"
+              pendingLabel="Applying mapping and writing preview…"
+              jobId={job.id}
+            />
           </form>
         </section>
       ) : null}
@@ -216,14 +214,12 @@ export default async function ImportJobPage({ params, searchParams }: Props) {
           {canCommit ? (
             <form action={commitContactIntelImportAction}>
               <input type="hidden" name="jobId" value={job.id} />
-              <p>
-                <WorkingSubmit
-                  className="btn btn-primary"
-                  label="Commit import"
-                  pendingLabel="Committing people and methods…"
-                  jobId={job.id}
-                />
-              </p>
+              <WorkingSubmit
+                className="btn btn-primary"
+                label="Commit import"
+                pendingLabel="Committing people and methods…"
+                jobId={job.id}
+              />
             </form>
           ) : null}
           <div className="scroll">

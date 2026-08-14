@@ -58,33 +58,36 @@ export function WorkingSubmit({ label, pendingLabel, jobId, fileHint, className 
     };
   }, [pending, jobId]);
 
-  if (!pending) {
-    return (
-      <button className={className ?? "btn btn-fog"} type="submit">
-        {label}
-      </button>
-    );
-  }
-
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null;
   const rate = elapsed > 1 && done > 0 ? done / elapsed : 0;
   const remaining = rate > 0 && total > done ? (total - done) / rate : null;
 
   return (
-    <div className="progress-panel" aria-live="polite">
-      <p className="progress-title">{pendingLabel}</p>
-      {fileHint ? <p className="muted">{fileHint}</p> : null}
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: pct == null ? "35%" : `${pct}%` }} data-indeterminate={pct == null ? "1" : "0"} />
-      </div>
-      <p className="muted">
-        {pct != null ? `${done.toLocaleString()} of ${total.toLocaleString()} rows · ${pct}%` : "Working…"}
-        {" · "}
-        elapsed {formatSeconds(elapsed)}
-        {remaining != null ? ` · about ${formatSeconds(remaining)} left` : total > 0 ? " · estimating…" : ""}
-      </p>
-      {message ? <p className="muted">{message}</p> : null}
-      <p className="muted">Keep this tab open. Large files can take several minutes.</p>
+    <div className="progress-wrap">
+      <button className={className ?? "btn btn-fog"} type="submit" disabled={pending} aria-busy={pending}>
+        {pending ? pendingLabel : label}
+      </button>
+      {pending ? (
+        <div className="progress-overlay" role="status" aria-live="polite">
+          <p className="progress-title">{pendingLabel}</p>
+          {fileHint ? <p className="muted">{fileHint}</p> : null}
+          <div className="progress-track">
+            <div
+              className="progress-fill"
+              style={{ width: pct == null ? "35%" : `${pct}%` }}
+              data-indeterminate={pct == null ? "1" : "0"}
+            />
+          </div>
+          <p className="progress-meta">
+            {pct != null ? `${done.toLocaleString()} of ${total.toLocaleString()} rows · ${pct}%` : "Working…"}
+            {" · "}
+            elapsed {formatSeconds(elapsed)}
+            {remaining != null ? ` · about ${formatSeconds(remaining)} left` : total > 0 ? " · estimating…" : ""}
+          </p>
+          {message ? <p className="progress-meta">{message}</p> : null}
+          <p className="progress-meta">Keep this tab open. Large files can take several minutes.</p>
+        </div>
+      ) : null}
     </div>
   );
 }
