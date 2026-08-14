@@ -57,6 +57,9 @@ input, select { width: 100%; padding: 8px; border: 1px solid var(--line); border
 label { display: block; font-size: 12px; font-weight: 700; color: rgba(28, 36, 48, 0.8); margin-top: 12px; }
 .search { display: flex; gap: 8px; margin: 16px 0; }
 .search input { flex: 1; }
+.ask-bar { display: flex; gap: 8px; align-items: flex-end; margin: 20px 0 8px; }
+.ask-bar label { flex: 1; margin-top: 0; }
+.ask-bar input { font-size: 16px; padding: 10px; }
 a.plain { color: var(--navy); }
 .scroll { overflow-x: auto; }
 .progress-wrap { display: block; margin-top: 8px; }
