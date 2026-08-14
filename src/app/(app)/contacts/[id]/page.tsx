@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { markContactIntelVoterNoMatchAction, saveContactIntelVoterIdAction } from "@/app/actions";
 import {
+  buildOscarDeskNotes,
   buildSearchLadder,
-  collectUploadedFacts,
+  groupSheetDrawers,
   initialsFromName,
   interpretVoterIdentity,
   scoreContactIdentity,
@@ -19,8 +20,38 @@ export default async function PersonPage({ params }: Props) {
   const emails = person.methods.filter((m) => m.kind === "EMAIL");
   const phones = person.methods.filter((m) => m.kind === "PHONE");
   const lookalikes = await listPersonLookalikes(person.id, person.firstName, person.lastName);
-  const openConflicts = [...person.conflictsLeft, ...person.conflictsRight];
-  const facts = collectUploadedFacts(person.sourceRows);
+  const openConflicts = [
+    ...person.conflictsLeft.map((c) => ({
+      id: c.id,
+      reason: c.reason,
+      otherId: c.rightPerson.id,
+      otherName: c.rightPerson.displayName,
+      file: c.sourceRow.job.originalFilename,
+    })),
+    ...person.conflictsRight.map((c) => ({
+      id: c.id,
+      reason: c.reason,
+      otherId: c.leftPerson.id,
+      otherName: c.leftPerson.displayName,
+      file: c.sourceRow.job.originalFilename,
+    })),
+  ];
+  const drawers = groupSheetDrawers(person.sourceRows);
+  const sheets = drawers.map((d) => d.sourceLabel || d.filename);
+  const oscarNotes = buildOscarDeskNotes({
+    displayName: person.displayName,
+    methods: person.methods,
+    addresses: person.addresses,
+    sheets,
+    conflicts: openConflicts,
+    lookalikes: lookalikes.map((other) => ({
+      id: other.id,
+      displayName: other.displayName,
+      methods: other.methods,
+      addresses: other.addresses,
+      sheets: [...new Set(other.sourceRows.map((r) => r.job.sourceLabel || r.job.originalFilename))],
+    })),
+  });
   const ladder = buildSearchLadder({
     firstName: person.firstName,
     lastName: person.lastName,
@@ -44,221 +75,176 @@ export default async function PersonPage({ params }: Props) {
   });
 
   return (
-    <div className="dossier">
-      <p>
+    <div className="desk">
+      <p className="desk-nav">
         <Link className="plain" href="/">
           ← Library
         </Link>
       </p>
 
-      <section className="dossier-hero">
+      <aside className="desk-rail">
         <div className="portrait" aria-hidden="true">
           <span>{initialsFromName(person.displayName)}</span>
           <em>Photo later</em>
         </div>
-        <div>
-          <p className="kicker">Contact file</p>
-          <h2>{person.displayName}</h2>
-          <p className="muted">{[person.firstName, person.lastName].filter(Boolean).join(" ") || "Name parts unknown"}</p>
-          <div className="chip-row">
-            {person.personTags.map((pt) => (
-              <span key={pt.id} className="chip">
-                {pt.tag.name}
-              </span>
-            ))}
-            {person.personTags.length === 0 ? <span className="muted">No tags yet</span> : null}
-          </div>
+        <p className="kicker">Person desk</p>
+        <h2>{person.displayName}</h2>
+        <p className="muted">{[person.firstName, person.lastName].filter(Boolean).join(" ") || "Name parts unknown"}</p>
+        <div className="chip-row">
+          {person.personTags.map((pt) => (
+            <span key={pt.id} className="chip">
+              {pt.tag.name}
+            </span>
+          ))}
         </div>
-        <div className="score-card">
+        <div className="score-card" style={{ textAlign: "left", marginTop: 16 }}>
           <div className="stat-label">Identity confidence</div>
           <div className="stat-value">{identity.percent}%</div>
           <p className="muted">
-            {identity.band === "strong" ? "Strong file" : identity.band === "usable" ? "Usable file" : "Thin file"} · {identity.score}/{identity.max}
+            {identity.band === "strong" ? "Strong file" : identity.band === "usable" ? "Usable file" : "Thin file"}
           </p>
         </div>
-      </section>
-
-      {openConflicts.length > 0 ? (
-        <p className="banner banner-warn">
-          Open identifier conflict. Email and phone point at two people — Oscar will not merge on name.{" "}
-          <Link className="plain" href="/review/dedupe">
-            Open de-dupe queue
-          </Link>
+        <h3>Identity keys</h3>
+        <p className="stat-label">Emails</p>
+        <ul>
+          {emails.length === 0 ? <li className="muted">None</li> : null}
+          {emails.map((m) => (
+            <li key={m.id}>{m.normalizedValue}</li>
+          ))}
+        </ul>
+        <p className="stat-label">Phones</p>
+        <ul>
+          {phones.length === 0 ? <li className="muted">None</li> : null}
+          {phones.map((m) => (
+            <li key={m.id}>{m.originalValue}</li>
+          ))}
+        </ul>
+        <p className="stat-label">Addresses</p>
+        <ul>
+          {person.addresses.length === 0 ? <li className="muted">None — not used to merge</li> : null}
+          {person.addresses.map((a) => (
+            <li key={a.id}>{[a.line, a.city, a.state, a.postalCode].filter(Boolean).join(", ")}</li>
+          ))}
+        </ul>
+        <h3>Voter</h3>
+        <p>
+          <strong>{voter.typeLabel}</strong>
         </p>
-      ) : null}
-      {lookalikes.length > 0 ? (
-        <p className="banner banner-oscar">
-          Same first and last name on {lookalikes.length} other file{lookalikes.length === 1 ? "" : "s"}. Review only — names never merge.
-        </p>
-      ) : null}
-
-      <section className="grid grid-2">
-        <div className="card">
-          <h3>How we know this is one person</h3>
-          <ul className="factor-list">
-            {identity.factors.map((f) => (
-              <li key={f.key} data-on={f.present ? "1" : "0"}>
-                <span>{f.present ? "●" : "○"}</span> {f.label} <em>{f.points}</em>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Voter identity</h3>
-          <p className="stat-value" style={{ fontSize: 22 }}>
-            {voter.typeLabel}
+        <p className="muted">Type accuracy {voter.accuracyPercent}%</p>
+        {person.voterMatch?.voterId ? (
+          <p>
+            ID <strong>{person.voterMatch.voterId}</strong>
           </p>
-          <p className="muted">Type accuracy {voter.accuracyPercent}% until the voter registration file is linked.</p>
-          <p>{voter.note}</p>
-          {person.voterMatch?.voterId ? (
-            <p>
-              Attached ID <strong>{person.voterMatch.voterId}</strong>
-            </p>
-          ) : null}
-          <ol className="ladder">
-            {ladder.steps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-          <form action={saveContactIntelVoterIdAction}>
-            <input type="hidden" name="personId" value={person.id} />
-            <label>
-              Voter ID
-              <input name="voterId" placeholder="From the registration file" defaultValue={person.voterMatch?.voterId ?? ""} />
-            </label>
-            <p>
-              <button className="btn btn-primary" type="submit">
-                Attach voter ID
-              </button>
-            </p>
-          </form>
-          <form action={markContactIntelVoterNoMatchAction}>
-            <input type="hidden" name="personId" value={person.id} />
-            <button className="btn btn-fog" type="submit">
-              No match in the file
+        ) : null}
+        <ol className="ladder">
+          {ladder.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <form action={saveContactIntelVoterIdAction}>
+          <input type="hidden" name="personId" value={person.id} />
+          <label>
+            Voter ID
+            <input name="voterId" placeholder="From the registration file" defaultValue={person.voterMatch?.voterId ?? ""} />
+          </label>
+          <p>
+            <button className="btn btn-primary" type="submit">
+              Attach voter ID
             </button>
-          </form>
-        </div>
-      </section>
+          </p>
+        </form>
+        <form action={markContactIntelVoterNoMatchAction}>
+          <input type="hidden" name="personId" value={person.id} />
+          <button className="btn btn-fog" type="submit">
+            No match
+          </button>
+        </form>
+        <h3>How we know</h3>
+        <ul className="factor-list">
+          {identity.factors.map((f) => (
+            <li key={f.key} data-on={f.present ? "1" : "0"}>
+              <span>{f.present ? "●" : "○"}</span> {f.label}
+            </li>
+          ))}
+        </ul>
+      </aside>
 
-      <section className="grid grid-2">
-        <div className="card">
-          <h3>Emails</h3>
-          <ul>
-            {emails.length === 0 ? <li className="muted">None</li> : null}
-            {emails.map((m) => (
-              <li key={m.id}>
-                <strong>{m.normalizedValue}</strong>
-                {m.originalValue !== m.normalizedValue ? <span className="muted"> as {m.originalValue}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Phones</h3>
-          <ul>
-            {phones.length === 0 ? <li className="muted">None</li> : null}
-            {phones.map((m) => (
-              <li key={m.id}>
-                <strong>{m.originalValue}</strong> <span className="muted">({m.normalizedValue})</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <main className="desk-blotter">
+        {oscarNotes.map((note) => (
+          <section key={note.title} className={`oscar-note oscar-note-${note.severity}`}>
+            <p className="kicker">Oscar</p>
+            <h3>{note.title}</h3>
+            <p>{note.body}</p>
+            {note.href ? (
+              <p>
+                <Link className="plain" href={note.href}>
+                  {note.hrefLabel}
+                </Link>
+                {note.severity === "conflict" ? (
+                  <>
+                    {" · "}
+                    <Link className="plain" href="/review/dedupe">
+                      De-dupe queue
+                    </Link>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+          </section>
+        ))}
 
-      <section className="grid grid-2">
-        <div className="card">
-          <h3>Addresses</h3>
-          <p className="muted">Source values only. Never used to merge people.</p>
-          <ul>
-            {person.addresses.length === 0 ? <li className="muted">None</li> : null}
-            {person.addresses.map((a) => (
-              <li key={a.id}>{[a.line, a.city, a.state, a.postalCode].filter(Boolean).join(", ") || "Partial address"}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Custom fields</h3>
-          <div className="fact-grid">
-            {person.customValues.length === 0 ? <p className="muted">None yet</p> : null}
-            {person.customValues.map((v) => (
-              <div key={v.id} className="fact">
-                <div className="stat-label">{v.definition.label}</div>
-                <div>{v.originalValue}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>Everything from the uploads</h3>
-        <p className="lede">If a column was on a sheet attached to this person, it is here — mapped or not.</p>
-        <div className="fact-grid">
-          {facts.length === 0 ? <p className="muted">No source cells yet.</p> : null}
-          {facts.map((fact) => (
-            <div key={fact.key} className="fact">
-              <div className="stat-label">{fact.key}</div>
-              {fact.values.map((item) => (
-                <div key={`${item.file}-${item.rowNumber}-${item.value}`}>
-                  {item.value}
-                  <div className="muted">
-                    {item.file} · row {item.rowNumber}
-                  </div>
+        {person.customValues.length > 0 ? (
+          <section className="desk-strip">
+            <p className="kicker">Current custom fields</p>
+            <div className="fact-grid">
+              {person.customValues.map((v) => (
+                <div key={v.id} className="fact">
+                  <div className="stat-label">{v.definition.label}</div>
+                  <div>{v.originalValue}</div>
                 </div>
               ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
+        ) : null}
 
-      {lookalikes.length > 0 ? (
-        <section className="card">
-          <h3>Same-name lookalikes</h3>
-          <p className="muted">Do not merge these unless email or phone is the same. Open each file and compare.</p>
-          <ul>
-            {lookalikes.map((other) => (
-              <li key={other.id}>
-                <Link className="plain" href={`/contacts/${other.id}`}>
-                  {other.displayName}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section className="card">
-        <h3>Source rows</h3>
-        <div className="scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Row</th>
-                <th>Status</th>
-                <th>Imported</th>
-              </tr>
-            </thead>
-            <tbody>
-              {person.sourceRows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <Link className="plain" href={`/import/${row.job.id}`}>
-                      {row.job.originalFilename}
-                    </Link>
-                    {row.job.sourceLabel ? <div className="muted">{row.job.sourceLabel}</div> : null}
-                  </td>
-                  <td>{row.rowNumber}</td>
-                  <td>{row.status}</td>
-                  <td className="muted">{row.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>
-                </tr>
+        <section>
+          <p className="kicker">Sheets on this desk</p>
+          <h3>Every row that built this file</h3>
+          <p className="lede">If it was on the spreadsheet, it is in the drawer. Mapped columns and leftover columns stay together.</p>
+          {drawers.length === 0 ? <p className="muted">No source sheets yet.</p> : null}
+          {drawers.map((drawer) => (
+            <article key={drawer.jobId} className="sheet-drawer">
+              <header>
+                <h3>
+                  <Link className="plain" href={`/import/${drawer.jobId}`}>
+                    {drawer.sourceLabel || drawer.filename}
+                  </Link>
+                </h3>
+                <p className="muted">
+                  {drawer.filename} · {drawer.rows.length} row{drawer.rows.length === 1 ? "" : "s"} ·{" "}
+                  {drawer.importedAt.slice(0, 16).replace("T", " ")}
+                </p>
+              </header>
+              {drawer.rows.map((row) => (
+                <div key={row.id} className="drawer-row">
+                  <p className="muted">
+                    Row {row.rowNumber} · {row.status}
+                  </p>
+                  <div className="fact-grid">
+                    {row.cells.length === 0 ? <p className="muted">Empty row</p> : null}
+                    {row.cells.map((cell) => (
+                      <div key={`${row.id}-${cell.key}`} className="fact">
+                        <div className="stat-label">{cell.key}</div>
+                        <div>{cell.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </article>
+          ))}
+        </section>
+      </main>
     </div>
   );
 }

@@ -57,8 +57,16 @@ export async function getContactIntelPerson(id: string) {
         include: { job: { select: { id: true, originalFilename: true, sourceLabel: true, createdAt: true } } },
       },
       voterMatch: true,
-      conflictsLeft: { where: { status: "OPEN" }, take: 20 },
-      conflictsRight: { where: { status: "OPEN" }, take: 20 },
+      conflictsLeft: {
+        where: { status: "OPEN" },
+        take: 20,
+        include: { rightPerson: { select: { id: true, displayName: true } }, sourceRow: { include: { job: { select: { id: true, originalFilename: true } } } } },
+      },
+      conflictsRight: {
+        where: { status: "OPEN" },
+        take: 20,
+        include: { leftPerson: { select: { id: true, displayName: true } }, sourceRow: { include: { job: { select: { id: true, originalFilename: true } } } } },
+      },
     },
   });
 }
@@ -174,7 +182,15 @@ export async function listPersonLookalikes(personId: string, firstName?: string 
       lastName: { equals: last, mode: "insensitive" },
     },
     take: 12,
-    select: { id: true, displayName: true, firstName: true, lastName: true },
+    include: {
+      methods: { select: { kind: true, normalizedValue: true, originalValue: true } },
+      addresses: { select: { city: true, state: true, postalCode: true } },
+      sourceRows: {
+        take: 4,
+        orderBy: { createdAt: "desc" },
+        include: { job: { select: { id: true, originalFilename: true, sourceLabel: true } } },
+      },
+    },
   });
 }
 

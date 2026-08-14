@@ -112,3 +112,27 @@ button:disabled { opacity: 0.7; cursor: wait; }
   .dossier-hero { grid-template-columns: 1fr; }
   .score-card { text-align: left; }
 }
+.desk { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
+.desk-nav { grid-column: 1 / -1; margin: 0; }
+.desk-rail {
+  position: sticky; top: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 16px;
+}
+.desk-rail h2 { margin: 4px 0 0; }
+.desk-rail h3 { margin: 20px 0 8px; font-size: 16px; }
+.desk-rail ul { padding-left: 18px; margin: 4px 0 12px; }
+.desk-blotter { min-width: 0; }
+.oscar-note { border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+.oscar-note h3 { margin: 4px 0 8px; }
+.oscar-note-clear { background: var(--fog); border: 1px solid rgba(47, 93, 70, 0.3); }
+.oscar-note-lookalike { background: #eef2ff; border: 1px solid #c7d2fe; }
+.oscar-note-conflict { background: #fff7ed; border: 1px solid #fdba74; }
+.desk-strip { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.sheet-drawer { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0 20px; }
+.sheet-drawer h3 { margin: 0 0 4px; }
+.drawer-row { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+@media (max-width: 900px) {
+  .desk { grid-template-columns: 1fr; }
+  .desk-rail { position: static; }
+}

@@ -153,6 +153,119 @@ export function initialsFromName(name: string): string {
   return `${parts[0]!.slice(0, 1)}${parts[parts.length - 1]!.slice(0, 1)}`.toUpperCase();
 }
 
+export type SheetDrawer = {
+  jobId: string;
+  filename: string;
+  sourceLabel: string | null;
+  importedAt: string;
+  rows: {
+    id: string;
+    rowNumber: number;
+    status: string;
+    cells: { key: string; value: string }[];
+  }[];
+};
+
+export function groupSheetDrawers(
+  rows: {
+    id: string;
+    rowNumber: number;
+    status: string;
+    rawJson: unknown;
+    createdAt: Date;
+    job: { id: string; originalFilename: string; sourceLabel: string | null };
+  }[],
+): SheetDrawer[] {
+  const byJob = new Map<string, SheetDrawer>();
+  for (const row of rows) {
+    const current = byJob.get(row.job.id) ?? {
+      jobId: row.job.id,
+      filename: row.job.originalFilename,
+      sourceLabel: row.job.sourceLabel,
+      importedAt: row.createdAt.toISOString(),
+      rows: [],
+    };
+    const cells: { key: string; value: string }[] = [];
+    if (row.rawJson && typeof row.rawJson === "object" && !Array.isArray(row.rawJson)) {
+      for (const [key, raw] of Object.entries(row.rawJson as Record<string, unknown>)) {
+        const value = String(raw ?? "").trim();
+        if (key.trim() && value) cells.push({ key, value });
+      }
+    }
+    current.rows.push({ id: row.id, rowNumber: row.rowNumber, status: row.status, cells });
+    if (row.createdAt.toISOString() > current.importedAt) current.importedAt = row.createdAt.toISOString();
+    byJob.set(row.job.id, current);
+  }
+  return [...byJob.values()].sort((a, b) => b.importedAt.localeCompare(a.importedAt));
+}
+
+export type OscarDeskNote = {
+  severity: "clear" | "lookalike" | "conflict";
+  title: string;
+  body: string;
+  href?: string;
+  hrefLabel?: string;
+};
+
+function methodKinds(methods: { kind: string }[]): string {
+  const hasEmail = methods.some((m) => m.kind === "EMAIL");
+  const hasPhone = methods.some((m) => m.kind === "PHONE");
+  if (hasEmail && hasPhone) return "email and phone";
+  if (hasEmail) return "email only";
+  if (hasPhone) return "phone only";
+  return "no email or phone";
+}
+
+function placeLabel(addresses: { city?: string | null; state?: string | null }[]): string {
+  return addresses.map((a) => [a.city, a.state].filter(Boolean).join(", ")).find(Boolean) || "no city";
+}
+
+export function buildOscarDeskNotes(input: {
+  displayName: string;
+  methods: { kind: string }[];
+  addresses: { city?: string | null; state?: string | null }[];
+  sheets: string[];
+  conflicts: { id: string; reason: string; otherId: string; otherName: string; file?: string }[];
+  lookalikes: {
+    id: string;
+    displayName: string;
+    methods: { kind: string }[];
+    addresses: { city?: string | null; state?: string | null }[];
+    sheets: string[];
+  }[];
+}): OscarDeskNote[] {
+  const notes: OscarDeskNote[] = [];
+  for (const conflict of input.conflicts) {
+    notes.push({
+      severity: "conflict",
+      title: `Oscar: identifier conflict with ${conflict.otherName}`,
+      body: `${conflict.reason} This desk has ${methodKinds(input.methods)}. Names never merge. Open both files and keep them separate unless you are fixing a bad source row.${conflict.file ? ` Source: ${conflict.file}.` : ""}`,
+      href: `/contacts/${conflict.otherId}`,
+      hrefLabel: `Open ${conflict.otherName}`,
+    });
+  }
+  for (const other of input.lookalikes) {
+    const sameSheets = input.sheets.filter((s) => other.sheets.includes(s));
+    notes.push({
+      severity: "lookalike",
+      title: `Oscar: almost the same name as ${other.displayName}`,
+      body: `This desk has ${methodKinds(input.methods)} in ${placeLabel(input.addresses)}. The other desk has ${methodKinds(other.methods)} in ${placeLabel(other.addresses)}. ${
+        sameSheets.length ? `They share sheet ${sameSheets.join(", ")}.` : "They do not share a sheet."
+      } Review only. Do not merge unless an email or phone is the same.`,
+      href: `/contacts/${other.id}`,
+      hrefLabel: `Open ${other.displayName}`,
+    });
+  }
+  if (notes.length === 0) {
+    notes.push({
+      severity: "clear",
+      title: "Oscar: this looks like one person",
+      body: `${input.displayName} has ${methodKinds(input.methods)} and ${input.sheets.length || "no"} source sheet${input.sheets.length === 1 ? "" : "s"}. No open identifier conflict and no same-name lookalike in the library slice.`,
+    });
+  }
+  return notes;
+}
+
 export function sameNameKey(firstName?: string | null, lastName?: string | null): string | null {
   const first = firstName?.trim().toLowerCase();
   const last = lastName?.trim().toLowerCase();
