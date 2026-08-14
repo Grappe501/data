@@ -56,12 +56,13 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
     index,
   );
 
-  await prisma.$transaction(async (tx) => {
-    for (const row of classified) {
-      const persisted = job.rows.find((r) => r.rowNumber === row.rowNumber);
-      if (!persisted) continue;
-      await tx.contactIntelSourceRow.update({
-        where: { id: persisted.id },
+  const byNumber = new Map(job.rows.map((r) => [r.rowNumber, r]));
+  const staging = classified.flatMap((row) => {
+    const persisted = byNumber.get(row.rowNumber);
+    if (!persisted) return [];
+    return [
+      {
+        id: persisted.id,
         data: {
           status: row.status,
           displayName: row.displayName,
@@ -73,21 +74,28 @@ export async function applyContactIntelMappingAndPreview(jobId: string, mapping:
           messagesJson: row.messages as unknown as Prisma.InputJsonValue,
           enrichmentJson: enrichmentPayload(row) as unknown as Prisma.InputJsonValue,
         },
-      });
-    }
-    await tx.contactIntelImportJob.update({
-      where: { id: jobId },
-      data: {
-        status: "PREVIEWED",
-        mappingJson: mapping as unknown as Prisma.InputJsonValue,
-        statsJson: stats as unknown as Prisma.InputJsonValue,
-        previewJson: {
-          generatedAt: new Date().toISOString(),
-          customFields: customPlan,
-        } as unknown as Prisma.InputJsonValue,
-        errorSummary: null,
       },
-    });
+    ];
+  });
+
+  const chunkSize = 40;
+  for (let i = 0; i < staging.length; i += chunkSize) {
+    const slice = staging.slice(i, i + chunkSize);
+    await prisma.$transaction(slice.map((item) => prisma.contactIntelSourceRow.update({ where: { id: item.id }, data: item.data })));
+  }
+
+  await prisma.contactIntelImportJob.update({
+    where: { id: jobId },
+    data: {
+      status: "PREVIEWED",
+      mappingJson: mapping as unknown as Prisma.InputJsonValue,
+      statsJson: stats as unknown as Prisma.InputJsonValue,
+      previewJson: {
+        generatedAt: new Date().toISOString(),
+        customFields: customPlan,
+      } as unknown as Prisma.InputJsonValue,
+      errorSummary: null,
+    },
   });
 
   return stats;
@@ -324,7 +332,7 @@ export async function commitContactIntelImport(jobId: string) {
 
         return stats;
       },
-      { timeout: 60_000 },
+      { timeout: 120_000, maxWait: 20_000 },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message.slice(0, 400) : "Commit failed.";
